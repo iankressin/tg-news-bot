@@ -16,51 +16,50 @@ interface HandlerDeps {
 
 /**
  * Register a message handler for a single channel.
+ *
+ * Pre-resolves the channel entity to its numeric peer ID so GramJS's chats
+ * filter never needs to call getInputEntity() lazily (which fails silently
+ * inside _dispatchUpdate and leaves resolved=false forever).
  */
-export function registerMessageHandler(
+export async function registerMessageHandler(
   client: TelegramClient,
   deps: HandlerDeps,
-): void {
+): Promise<void> {
   const { channel } = deps;
+
+  let chatFilter: (string | bigint)[];
+  try {
+    const entity = await client.getInputEntity(channel) as any;
+    // Build the marked peer ID: -100<channelId> (Telegram's standard format)
+    const numericId = BigInt(`-100${entity.channelId}`);
+    chatFilter = [numericId];
+    logger.info('Message handler registered', { channel, resolvedId: numericId.toString() });
+  } catch (error) {
+    // If entity resolution fails at startup we log clearly and skip this channel
+    // rather than registering a handler that will silently drop all events.
+    logger.error('Failed to resolve channel entity — handler NOT registered', {
+      channel,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return;
+  }
 
   client.addEventHandler(
     (event: NewMessageEvent) => handleNewMessage(event, deps),
-    new NewMessage({ chats: [channel] }),
+    new NewMessage({ chats: chatFilter }),
   );
-
-  logger.info('Message handler registered', { channel });
-}
-
-/**
- * Register a catch-all debug handler to log ALL incoming messages (no chat filter).
- * Remove this once the channel filtering issue is diagnosed.
- */
-export function registerDebugCatchAllHandler(client: TelegramClient): void {
-  client.addEventHandler(
-    (event: NewMessageEvent) => {
-      const msg = event.message;
-      const peerId = (msg as any).peerId;
-      logger.info('[DEBUG] Raw message received', {
-        messageId: msg.id,
-        peerId: JSON.stringify(peerId),
-        text: (msg.text || (msg as any).message || '').slice(0, 80),
-      });
-    },
-    new NewMessage({}),
-  );
-  logger.info('[DEBUG] Catch-all message handler registered');
 }
 
 /**
  * Register message handlers for multiple channels.
  */
-export function registerMultiChannelHandlers(
+export async function registerMultiChannelHandlers(
   client: TelegramClient,
   channels: Array<{ channelUsername: string; displayName: string | null }>,
   deps: Omit<HandlerDeps, 'channel'>,
-): void {
+): Promise<void> {
   for (const ch of channels) {
-    registerMessageHandler(client, {
+    await registerMessageHandler(client, {
       ...deps,
       channel: ch.channelUsername,
     });

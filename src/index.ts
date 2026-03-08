@@ -4,7 +4,7 @@ import { createDb } from './db/client.js';
 import { createBot } from './bot/bot.js';
 import { setBotInstance, setDbInstance } from './bot/notifications.js';
 import { createMonitorClient } from './monitor/client.js';
-import { registerMultiChannelHandlers, registerDebugCatchAllHandler } from './monitor/handler.js';
+import { registerMultiChannelHandlers } from './monitor/handler.js';
 import { dispatchNotification } from './bot/notifications.js';
 import { loadChannelsConfig, seedChannels, getActiveChannels } from './db/seed-channels.js';
 import { logger } from './utils/logger.js';
@@ -94,16 +94,13 @@ async function main() {
     config.telegramSession,
   );
 
-  // Temporary debug: log ALL incoming messages to diagnose channel filtering
-  registerDebugCatchAllHandler(monitorClient);
-
   // Register message handlers for all active channels from DB
   const activeChannels = await getActiveChannels(db);
 
   if (activeChannels.length === 0) {
     logger.warn('No active channels to monitor');
   } else {
-    registerMultiChannelHandlers(monitorClient, activeChannels, {
+    await registerMultiChannelHandlers(monitorClient, activeChannels, {
       db,
       threshold: config.relevanceThreshold,
       sendNotification: dispatchNotification,

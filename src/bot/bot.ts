@@ -1,6 +1,6 @@
 import { Bot, InlineKeyboard } from 'grammy';
 import { eq, and } from 'drizzle-orm';
-import { subscriber, processedMessage, messageReview } from '../db/schema.js';
+import { subscriber, processedMessage, messageReview, monitoredChannel } from '../db/schema.js';
 import { logger } from '../utils/logger.js';
 import type { AppDatabase } from '../db/client.js';
 
@@ -32,11 +32,13 @@ export function createBot(tokenOrOpts: string | CreateBotOptions): Bot {
   // Register commands in Telegram's menu
   bot.api.setMyCommands([
     { command: 'start', description: 'Subscribe to lead alerts' },
+    { command: 'channels', description: 'List monitored channels' },
   ]).catch((err) => {
     logger.error('Failed to set bot commands', { error: err.message });
   });
 
   registerStartCommand(bot, db, adminIds);
+  registerChannelsCommand(bot, db);
   registerApprovalCallbacks(bot, db);
   registerFeedbackCallbacks(bot, db);
 
@@ -146,6 +148,28 @@ function registerStartCommand(
         adminCount: adminSubscribers.length,
       });
     }
+  });
+}
+
+function registerChannelsCommand(bot: Bot, db: AppDatabase): void {
+  bot.command('channels', async (ctx) => {
+    const channels = await db
+      .select()
+      .from(monitoredChannel)
+      .where(eq(monitoredChannel.active, true));
+
+    if (channels.length === 0) {
+      await ctx.reply('No channels are being monitored.');
+      return;
+    }
+
+    const list = channels
+      .map((c) => `• @${c.channelUsername}${c.displayName ? ` (${c.displayName})` : ''}`)
+      .join('\n');
+
+    await ctx.reply(`<b>Monitored channels (${channels.length}):</b>\n\n${list}`, {
+      parse_mode: 'HTML',
+    });
   });
 }
 

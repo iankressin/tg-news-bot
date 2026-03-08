@@ -1,6 +1,6 @@
 # Very Nice Leads — Blockchain News Lead Bot
 
-<img src="./very-nice-leads-pfp.jpg" width="160" alt="Very Nice Leads bot" />
+<p align="center"><img src="./very-nice-leads-pfp.jpg" width="360" alt="Very Nice Leads bot" /></p>
 
 Monitors Telegram channels for blockchain/DeFi news and sends scored alerts to subscribers via a Telegram bot.
 

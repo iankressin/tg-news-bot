@@ -82,8 +82,10 @@ async function main() {
   setBotInstance(bot);
   setDbInstance(db);
 
-  // Start bot polling (non-blocking)
+  // Start bot polling (non-blocking).
+  // Drop pending updates to avoid 409 conflicts during Railway rolling deploys.
   bot.start({
+    drop_pending_updates: true,
     onStart: () => logger.info('grammY bot started polling'),
   });
 

@@ -32,11 +32,15 @@ export async function createMonitorClient(
     },
   });
 
-  // Monitor connection state changes
+  // Monitor connection state changes — only log on actual state transitions
+  let lastConnectionState: number | undefined;
   client.addEventHandler((update: any) => {
     if (update instanceof UpdateConnectionState) {
-      const state = update.state === -1 ? 'disconnected' : update.state === 0 ? 'broken' : 'connected';
-      logger.info('GramJS connection state changed', { state });
+      if (update.state !== lastConnectionState) {
+        const state = update.state === -1 ? 'disconnected' : update.state === 0 ? 'broken' : 'connected';
+        logger.info('GramJS connection state changed', { state });
+        lastConnectionState = update.state;
+      }
     }
   });
 
